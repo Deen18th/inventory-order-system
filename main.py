@@ -1,6 +1,7 @@
 from db import (
     setup_database,
     add_product,
+    add_products_with_initial_stock,
     get_all_products,
     add_stock_movement,
     get_stock_level,
@@ -40,6 +41,7 @@ choice = input(
     "4 = Create order\n"
     "5 = View order\n"
     "6 = Update order status\n"
+    "7 = Bulk add products + initial stock\n"
     "Choice: "
 ).strip()
 
@@ -112,6 +114,50 @@ elif choice == "6":
         print("Order updated!")
     except OrderError as e:
         print(f"ERROR: {e}")
+
+elif choice == "7":
+    print("\nEnter products in this format:")
+    print("SKU, Name, Price, InitialQty")
+    print("Example: SKU3, Blue T-Shirt, 19.99, 10")
+    print("Press Enter on a blank line to finish.\n")
+
+    products_to_add = []
+
+    while True:
+        line = input("Product: ").strip()
+        if line == "":
+            break
+
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) != 4:
+            print("ERROR: Use exactly: SKU, Name, Price, InitialQty")
+            continue
+
+        sku, name, price_text, qty_text = parts
+
+        try:
+            price = float(price_text)
+            qty = int(qty_text)
+            if qty < 0:
+                print("ERROR: InitialQty cannot be negative.")
+                continue
+            products_to_add.append((sku, name, price, qty))
+        except ValueError:
+            print("ERROR: Price must be a number (e.g. 19.99) and InitialQty must be a whole number (e.g. 10).")
+
+    if not products_to_add:
+        print("No products entered.")
+    else:
+        added, skipped = add_products_with_initial_stock(products_to_add)
+
+        print(f"\nAdded {added} products successfully.")
+
+    if skipped:
+            print("Skipped duplicate SKUs:")
+            for sku in skipped:
+                print(f"- {sku}")
+
+
 
 
 else:

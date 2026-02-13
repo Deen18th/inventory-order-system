@@ -332,3 +332,80 @@ def update_order_status(order_id, new_status):
     cursor.execute("UPDATE orders SET status = ? WHERE id = ?", (new_status, order_id))
     conn.commit()
     conn.close()
+
+
+    """
+    Adds multiple products and also adds an initial stock IN movement for each.
+
+    products format:
+    [("SKU1", "Name", 10.5, 20), ("SKU2", "Name2", 5.0, 0)]
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    for sku, name, price, initial_qty in products:
+        sku = sku.strip()
+        name = name.strip()
+        price = float(price)
+        initial_qty = int(initial_qty)
+
+        # 1) Add product
+        cursor.execute(
+            "INSERT INTO products (sku, name, price) VALUES (?, ?, ?)",
+            (sku, name, price)
+        )
+
+        # 2) Add initial stock if > 0
+        if initial_qty > 0:
+            cursor.execute(
+                "INSERT INTO stock_movements (sku, movement_type, quantity, reason) VALUES (?, 'IN', ?, ?)",
+                (sku, initial_qty, "initial_stock")
+            )
+
+    conn.commit()
+    conn.close()
+
+def add_products_with_initial_stock(products):
+    """
+    Adds multiple products with initial stock.
+    Skips duplicate SKUs instead of crashing.
+
+    Returns:
+    (added_count, skipped_skus)
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    added_count = 0
+    skipped_skus = []
+
+    for sku, name, price, initial_qty in products:
+        sku = sku.strip()
+        name = name.strip()
+        price = float(price)
+        initial_qty = int(initial_qty)
+
+        try:
+            # Try to insert the product
+            cursor.execute(
+                "INSERT INTO products (sku, name, price) VALUES (?, ?, ?)",
+                (sku, name, price)
+            )
+
+            # If initial stock > 0, record stock IN
+            if initial_qty > 0:
+                cursor.execute(
+                    "INSERT INTO stock_movements (sku, movement_type, quantity, reason) VALUES (?, 'IN', ?, ?)",
+                    (sku, initial_qty, "initial_stock")
+                )
+
+            added_count += 1
+
+        except Exception:
+            # Most likely a duplicate SKU
+            skipped_skus.append(sku)
+
+    conn.commit()
+    conn.close()
+
+    return added_count, skipped_skus
